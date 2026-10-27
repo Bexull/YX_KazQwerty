@@ -66,6 +66,8 @@ if [ "${1:-}" = "--release" ]; then
     VERSION="$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)"
     ZIP="$BUILD_DIR/$APP_NAME-$VERSION.zip"
     rm -f "$ZIP"
-    ditto -c -k --keepParent "$APP" "$ZIP"
+    # No extended attributes: ditto would store them as ._ files, and unzip would leave those
+    # inside the app and break its signature.
+    ditto -c -k --norsrc --noextattr --keepParent "$APP" "$ZIP"
     echo "Packed $ZIP"
 fi
