@@ -26,3 +26,40 @@ jobs:
 
       - name: Разговорные формы
         run: build/test-typing Resources/kazakh Tools/TypingTests/colloquial.tsv /dev/null
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: Windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: false
+
+      - name: Тесты автозамены, go vet и сборка
+        run: ./build.sh
+
+      - name: Русская раскладка для проверки клавиатуры
+        shell: powershell
+        run: Set-WinUserLanguageList -LanguageList en-US, ru-RU -Force
+
+      # The runner may have no desktop to type into, so the keyboard check can fail there for
+      # reasons of its own; the report is in the log and in the artifact.
+      - name: Самопроверка
+        continue-on-error: true
+        run: ./dist/YX_KazQwerty.exe --selftest selftest
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: YX_KazQwerty-windows
+          path: |
+            Windows/dist/YX_KazQwerty.exe
+            Windows/selftest/

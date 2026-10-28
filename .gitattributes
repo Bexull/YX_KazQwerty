@@ -1,0 +1,3 @@
+# LF everywhere, also in Windows checkouts: the autocorrect data is searched as raw sorted lines,
+# and the tests compare text exactly.
+* text=auto eol=lf

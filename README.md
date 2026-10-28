@@ -4,12 +4,13 @@
 
 # YX_KazQwerty
 
-**Казахская клавиатура для macOS**<br>
+**Казахская клавиатура для macOS и Windows**<br>
 пишешь русскими буквами, получается правильный казахский
 
 [![Скачать](https://img.shields.io/github/v/release/Bexull/YX_KazQwerty?label=%D1%81%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C&color=1a8fc2)](https://github.com/Bexull/YX_KazQwerty/releases/latest)
 ![macOS 26+](https://img.shields.io/badge/macOS-26%2B-000000?logo=apple)
 ![Apple silicon](https://img.shields.io/badge/Apple%20silicon-arm64-000000)
+![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11%20%C2%B7%20%D0%B1%D0%B5%D1%82%D0%B0-0078D4)
 [![Тесты](https://github.com/Bexull/YX_KazQwerty/actions/workflows/tests.yml/badge.svg)](https://github.com/Bexull/YX_KazQwerty/actions/workflows/tests.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
@@ -63,6 +64,12 @@
    снова: заодно включится казахский словарь проверки орфографии.
 
 Чтобы YX_KazQwerty запускался сам: в его меню «Открывать при входе в систему».
+
+### Windows
+
+Бета для Windows 10 и 11: казахские буквы на правом Alt в обычной русской раскладке и та же
+автозамена. Один файл `YX_KazQwerty.exe`, устанавливать ничего не нужно. Как скачать, запустить
+и проверить: [Windows/README.md](Windows/README.md).
 
 > [!TIP]
 > Нужна ещё громкость каждого приложения? [YX_Tools](https://github.com/Bexull/YX_Tools) — это
@@ -156,6 +163,8 @@ cd YX_KazQwerty
 
 ## Как устроено
 
+Версия для Windows лежит в `Windows/` и описана в [её README](Windows/README.md).
+
 - `Sources/Keyboard/KazakhKeyboard.swift`: перехват клавиатуры (правый ⌘ и автозамена),
   обучение, исключённые программы.
 - `Sources/Keyboard/KazakhTyping.swift`: сама автозамена. Решает, как должно выглядеть каждое
@@ -229,7 +238,8 @@ python3 Tools/make-kazakh-dictionary.py Resources/kazakh \
 
 ### In English
 
-**YX_KazQwerty** is a Kazakh keyboard for macOS 26 on Apple silicon. It installs a combined
+**YX_KazQwerty** is a Kazakh keyboard for macOS 26 on Apple silicon, with a Windows beta in
+[Windows/](Windows/README.md). It installs a combined
 Russian + Kazakh layout, puts the Kazakh letters on the right ⌘ key, and runs an on-device
 autocorrect that turns Kazakh typed with plain Russian letters into proper Kazakh spelling
 ("салеметсизбе" → "Сәлеметсіз бе"), while leaving Russian text alone. Download the latest build
