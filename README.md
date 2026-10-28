@@ -44,7 +44,7 @@
 
 Нужны **macOS 26 Tahoe** и Mac на **Apple silicon** (M1 и новее).
 
-1. Скачайте `YX_KazQwerty-1.0.zip` со страницы
+1. Скачайте `YX_KazQwerty-1.1.zip` со страницы
    [последнего выпуска](https://github.com/Bexull/YX_KazQwerty/releases/latest) и откройте архив.
 2. Перетащите YX_KazQwerty в папку «Программы».
 3. Разрешите первый запуск. Приложение не нотаризовано Apple, поэтому macOS его остановит.
@@ -68,8 +68,9 @@
 ### Windows
 
 Бета для Windows 10 и 11: казахские буквы на правом Alt в обычной русской раскладке и та же
-автозамена. Один файл `YX_KazQwerty.exe`, устанавливать ничего не нужно. Как скачать, запустить
-и проверить: [Windows/README.md](Windows/README.md).
+автозамена. Один файл `YX_KazQwerty.exe` на странице
+[последнего выпуска](https://github.com/Bexull/YX_KazQwerty/releases/latest), устанавливать
+ничего не нужно. Как запустить и проверить: [Windows/README.md](Windows/README.md).
 
 > [!TIP]
 > Нужна ещё громкость каждого приложения? [YX_Tools](https://github.com/Bexull/YX_Tools) — это
