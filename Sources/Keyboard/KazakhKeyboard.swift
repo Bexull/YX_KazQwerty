@@ -52,6 +52,7 @@ final class KazakhKeyboard {
     }
 
     func start() {
+        pruneLearned()
         let center = DistributedNotificationCenter.default()
         for case let name? in [kTISNotifySelectedKeyboardInputSourceChanged, kTISNotifyEnabledKeyboardInputSourcesChanged] {
             center.addObserver(forName: Notification.Name(name as String), object: nil, queue: .main) { [weak self] _ in
@@ -77,6 +78,8 @@ final class KazakhKeyboard {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.corpusWords = (vocabulary.corpus as? KazakhCorpus)?.count ?? 0
+                self.russianWords = vocabulary.russian
+                self.pruneLearned()
                 self.engine.setBase(vocabulary)
                 self.pushWords()
             }
@@ -220,6 +223,8 @@ final class KazakhKeyboard {
 
     // MARK: - Learning
 
+    private var russianWords: KazakhWordList?
+
     /// Hand-picked words, then learned ones, then the user's list (which wins).
     private func pushWords() {
         var words = KazakhWords.dictionary()
@@ -234,7 +239,7 @@ final class KazakhKeyboard {
     private func remember(_ events: [KazakhTyping.Event]) {
         var seen = defaults.dictionary(forKey: "kazakh.seen") as? [String: Int] ?? [:]
         var learned = defaults.dictionary(forKey: "kazakh.learned") as? [String: String] ?? [:]
-        for case .learned(let word) in events {
+        for case .learned(let word) in events where KazakhWords.canLearn(word, russian: russianWords) {
             seen[word, default: 0] += 1
             if seen[word]! >= 2 {
                 learned[KazakhWords.plain(word)] = word
@@ -244,6 +249,16 @@ final class KazakhKeyboard {
         defaults.set(seen, forKey: "kazakh.seen")
         defaults.set(learned, forKey: "kazakh.learned")
         pushWords()
+    }
+
+    /// Drops what older versions learned but `canLearn` now refuses ("к" → "қ").
+    private func pruneLearned() {
+        let seen = defaults.dictionary(forKey: "kazakh.seen") as? [String: Int] ?? [:]
+        let learned = defaults.dictionary(forKey: "kazakh.learned") as? [String: String] ?? [:]
+        let goodSeen = seen.filter { KazakhWords.canLearn($0.key, russian: russianWords) }
+        let goodLearned = learned.filter { KazakhWords.canLearn($0.value, russian: russianWords) }
+        if goodSeen.count != seen.count { defaults.set(goodSeen, forKey: "kazakh.seen") }
+        if goodLearned.count != learned.count { defaults.set(goodLearned, forKey: "kazakh.learned") }
     }
 }
 

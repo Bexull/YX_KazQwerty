@@ -6,6 +6,7 @@ package kazakh
 import (
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // builtIn: common Kazakh words that people type with plain Russian letters. Each word is
@@ -32,6 +33,13 @@ const builtIn = `
 var plainLetters = map[rune]rune{
 	'ә': 'а', 'і': 'и', 'ң': 'н', 'ғ': 'г', 'қ': 'к', 'ө': 'о', 'ү': 'у', 'ұ': 'у', 'һ': 'х',
 	'i': 'и', // a Latin i typed for the Kazakh і
+}
+
+// CanLearn reports whether an unknown Kazakh word may be learned from typing. A learned word
+// always applies, so a lone "қ" would turn every Russian "к" into it, and "қот" would take
+// over Russian "кот".
+func CanLearn(word string, russian *SortedLines) bool {
+	return utf8.RuneCountInString(word) >= 3 && (russian == nil || !russian.Contains(Plain(word)))
 }
 
 // Plain is the spelling a word gets when typed with Russian letters only.

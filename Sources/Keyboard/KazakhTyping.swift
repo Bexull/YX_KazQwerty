@@ -276,6 +276,11 @@ struct KazakhTyping {
             if entry.isAcronym, !(typed.count > 1 && typed == typed.uppercased()) {
                 return Decision(shown: typed, known: true)
             }
+            // "Сәлем, как дела": it stays Russian, unless the word before calls for the Kazakh form.
+            if entry.isRussianByFar, !entry.isTrusted, !KazakhWords.containsKazakhLetters(typed),
+               before.flatMap({ vocabulary.leftContext[$0.lowercased() + "\t" + plain] }) == nil {
+                return Decision(shown: typed, evidence: -1, known: true)
+            }
             // Written together even in the corpus ("білесіңбе", "жоқпа"), or asked with "?" ("барма?").
             if !entry.isTrusted, language != .russian,
                let split = splitParticle(plain: plain, typed: typed, mergedCount: entry.forms[0].count,

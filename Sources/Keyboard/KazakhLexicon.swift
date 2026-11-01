@@ -16,6 +16,9 @@ struct KazakhEntry: Equatable {
     var isName = false
     /// The plain spelling is far more common in Russian ("для", "он"): a vote for Russian.
     var isMostlyRussian = false
+    /// Far more common in Russian than its look-alike is in Kazakh ("как": қақ, "она": оңа):
+    /// never corrected, even inside a Kazakh phrase.
+    var isRussianByFar = false
     /// Russian has the plain spelling only as a rare word next to a common Kazakh one
     /// ("аска": асқа): correct it without waiting for Kazakh text.
     var isMostlyKazakh = false
@@ -168,7 +171,8 @@ final class KazakhCorpus: KazakhLexicon {
         guard !forms.isEmpty else { return nil }
         let flags = fields.count > 1 ? fields[1] : ""
         return KazakhEntry(forms: forms, isRussianToo: flags.contains("r"), isName: flags.contains("n"),
-                           isMostlyRussian: flags.contains("R"), isMostlyKazakh: flags.contains("k"),
+                           isMostlyRussian: flags.contains("R"), isRussianByFar: flags.contains("x"),
+                           isMostlyKazakh: flags.contains("k"),
                            isAcronym: flags.contains("a"), isChat: flags.contains("c"))
     }
 

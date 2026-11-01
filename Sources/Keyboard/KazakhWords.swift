@@ -32,6 +32,12 @@ enum KazakhWords {
         String(word.lowercased().map { plainLetters[$0] ?? $0 })
     }
 
+    /// Whether an unknown Kazakh word may be learned from typing. A learned word always applies,
+    /// so a lone "қ" would turn every Russian "к" into it, and "қот" would take over Russian "кот".
+    static func canLearn(_ word: String, russian: KazakhWordList?) -> Bool {
+        word.count >= 3 && russian?.contains(plain(word)) != true
+    }
+
     static func isKazakhLetter(_ character: Character) -> Bool {
         guard let lower = character.lowercased().first, lower != "i" else { return false }
         return plainLetters[lower] != nil

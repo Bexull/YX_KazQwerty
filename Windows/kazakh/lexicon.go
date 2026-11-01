@@ -23,6 +23,9 @@ type Entry struct {
 	IsName bool
 	// The plain spelling is far more common in Russian ("для", "он"): a vote for Russian.
 	IsMostlyRussian bool
+	// Far more common in Russian than its look-alike is in Kazakh ("как": қақ, "она": оңа):
+	// never corrected, even inside a Kazakh phrase.
+	IsRussianByFar bool
 	// Russian has the plain spelling only as a rare word next to a common Kazakh one
 	// ("аска": асқа): correct it without waiting for Kazakh text.
 	IsMostlyKazakh bool
@@ -195,7 +198,7 @@ func (s *SortedLines) compare(key string, start int) int {
 
 // Corpus is the word-form list built by Tools/make-kazakh-dictionary.py: one line per plain
 // spelling, "plain<TAB>form:count|form:count<TAB>flags", sorted by plain spelling (UTF-8
-// bytes). "=" is the plain spelling itself; flags: r, R, k, n, a, c, s (see the builder).
+// bytes). "=" is the plain spelling itself; flags: r, R, x, k, n, a, c, s (see the builder).
 type Corpus struct {
 	lines *SortedLines
 }
@@ -220,6 +223,7 @@ func (c *Corpus) Entry(plain string) *Entry {
 		IsRussianToo:    strings.Contains(flags, "r"),
 		IsName:          strings.Contains(flags, "n"),
 		IsMostlyRussian: strings.Contains(flags, "R"),
+		IsRussianByFar:  strings.Contains(flags, "x"),
 		IsMostlyKazakh:  strings.Contains(flags, "k"),
 		IsAcronym:       strings.Contains(flags, "a"),
 		IsChat:          strings.Contains(flags, "c"),

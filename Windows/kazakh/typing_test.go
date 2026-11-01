@@ -30,6 +30,9 @@ func entry(forms ...any) *Entry {
 				e.IsName = true
 			case mostlyKazakh:
 				e.IsMostlyKazakh = true
+			case russianByFar:
+				e.IsMostlyRussian = true
+				e.IsRussianByFar = true
 			}
 		}
 	}
@@ -42,6 +45,7 @@ const (
 	russian flag = iota
 	name
 	mostlyKazakh
+	russianByFar
 )
 
 func fakeVocabulary() *Vocabulary {
@@ -69,6 +73,7 @@ func fakeVocabulary() *Vocabulary {
 			"аска":     entry("асқа", 205, russian, mostlyKazakh), "жатам": entry("жатам", 10),
 			"ойын": entry("ойын", 9000, "ойың", 120), "ойындар": entry("ойындар", 900),
 			"салеметсиз": entry("сәлеметсіз", 300),
+			"как":        entry("қақ", 345, "как", 17, russian, russianByFar),
 		},
 		LeftContext:  map[string]string{"туған\tкунин": "күнің"},
 		RightContext: map[string]string{"жолын\tболсын": "жолың"},
@@ -123,6 +128,9 @@ func TestTyping(t *testing.T) {
 		{"all caps", "КАЗАКСТАН!", "ҚАЗАҚСТАН!"},
 		{"already right", "қазақ ", "қазақ "},
 		{"Russian untouched", "привет как дела ", "привет как дела "},
+		{"very Russian word in a Kazakh phrase", "жаксы как ", "жақсы как "},
+		{"very Russian word doesn't wait for Kazakh", "как жаксы ", "как жақсы "},
+		{"the Kazakh word typed with its letters", "қақ ", "қақ "},
 		{"backspace takes back the space only", "казак ⌫", "қазақ"},
 		{"then punctuation", "казак ⌫!", "қазақ!"},
 		{"second backspace undoes", "казак ⌫⌫", "казак"},
@@ -173,6 +181,14 @@ func TestTyping(t *testing.T) {
 				t.Errorf("got «%s», expected «%s»", got, check.expected)
 			}
 		})
+	}
+}
+
+func TestCanLearn(t *testing.T) {
+	for word, expected := range map[string]bool{"қ": false, "ққ": false, "үйттің": true} {
+		if CanLearn(word, nil) != expected {
+			t.Errorf("CanLearn(%q) != %v", word, expected)
+		}
 	}
 }
 

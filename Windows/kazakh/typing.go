@@ -326,6 +326,13 @@ func (t *Typing) decide(typed, before string, hasBefore bool, boundary string, l
 		if entry.IsAcronym && !(utf8.RuneCountInString(typed) > 1 && typed == strings.ToUpper(typed)) {
 			return decision{shown: typed, known: true}
 		}
+		// "Сәлем, как дела": it stays Russian, unless the word before calls for the Kazakh form.
+		if entry.IsRussianByFar && !entry.IsTrusted && !ContainsKazakhLetters(typed) {
+			_, byContext := vocabulary.LeftContext[strings.ToLower(before)+"\t"+plain]
+			if !hasBefore || !byContext {
+				return decision{shown: typed, evidence: -1, known: true}
+			}
+		}
 		// Written together even in the corpus ("білесіңбе", "жоқпа"), or asked with "?" ("барма?").
 		if !entry.IsTrusted && language != Russian {
 			if split, ok := splitParticle(plain, typed, entry.Forms[0].Count, asked, language, vocabulary); ok {

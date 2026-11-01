@@ -116,7 +116,7 @@ func (s *store) toggleExclusion(exe string) {
 
 // remember counts unknown Kazakh words; one typed twice is learned. Reports whether the word
 // list changed.
-func (s *store) remember(words []string) bool {
+func (s *store) remember(words []string, russian *kazakh.SortedLines) bool {
 	changed := false
 	s.update(func(current *settings) {
 		if current.Seen == nil {
@@ -126,6 +126,9 @@ func (s *store) remember(words []string) bool {
 			current.Learned = map[string]string{}
 		}
 		for _, word := range words {
+			if !kazakh.CanLearn(word, russian) {
+				continue
+			}
 			current.Seen[word]++
 			if current.Seen[word] >= 2 {
 				current.Learned[kazakh.Plain(word)] = word
@@ -135,6 +138,22 @@ func (s *store) remember(words []string) bool {
 		}
 	})
 	return changed
+}
+
+// pruneLearned drops what older versions learned but CanLearn now refuses ("к" -> "қ").
+func (s *store) pruneLearned(russian *kazakh.SortedLines) {
+	s.update(func(current *settings) {
+		for word := range current.Seen {
+			if !kazakh.CanLearn(word, russian) {
+				delete(current.Seen, word)
+			}
+		}
+		for plain, word := range current.Learned {
+			if !kazakh.CanLearn(word, russian) {
+				delete(current.Learned, plain)
+			}
+		}
+	})
 }
 
 func (s *store) forgetLearned() {

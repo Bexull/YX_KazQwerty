@@ -19,7 +19,7 @@ are Russian words of Kazakhstan ("тенге", "Актобе"): always kept in R
 Output files (all UTF-8, tab-separated):
   dictionary.tsv  plain, forms ("form:count|form:count", "=" is the plain spelling), flags
                   (r = also a Russian word, R = mostly Russian, k = a rare Russian word next to a
-                  common Kazakh one, n = a name, a = an abbreviation, c = chat word, s = spoken form, written the
+                  common Kazakh one, x = so common in Russian that it is never corrected, n = a name, a = an abbreviation, c = chat word, s = spoken form, written the
                   standard way: "нестиміз" -> "не істейміз").
                   Sorted by plain spelling as bytes.
   context.tsv     L prev-word key form   /  R key next-word form: neighbour decides the form.
@@ -309,6 +309,10 @@ def main():
             if best != key and key not in local_russian \
                     and russian_counts[key] / russian_total < 0.02 * total / kazakh_total:
                 flags += "k"
+            # Far more common in Russian than its Kazakh look-alike is in Kazakh ("как": қақ, "она": оңа):
+            # the app leaves it alone even inside a Kazakh phrase ("Сәлем, как дела").
+            if best != key and russian_counts[key] / russian_total >= 15 * total / kazakh_total:
+                flags += "x"
         # Short and nearly always in capitals: an abbreviation ("ӘКК", "АҚШ"), which the app fixes
         # only when typed in capitals ("акк" in a chat is an account).
         if len(key) <= 5 and sum(capitals[f] for f in forms) >= 0.85 * total:

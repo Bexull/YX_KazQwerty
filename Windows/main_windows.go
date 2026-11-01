@@ -141,10 +141,11 @@ func (app *application) windowProc(hwnd, message, wParam, lParam uintptr) uintpt
 	case message == wmLearned:
 		if wParam == 1 { // the vocabulary finished loading
 			app.base = app.loaded.Load()
+			app.store.pruneLearned(app.base.Russian)
 			app.applySettings()
 			return 0
 		}
-		if app.store.remember(app.keyboard.takeLearned()) {
+		if app.base != nil && app.store.remember(app.keyboard.takeLearned(), app.base.Russian) {
 			app.applySettings()
 		}
 		return 0

@@ -13,9 +13,10 @@ struct FakeCorpus: KazakhLexicon {
     func entry(forPlain plain: String) -> KazakhEntry? { entries[plain] }
 }
 
-func entry(_ forms: [(String, Int)], russian: Bool = false, name: Bool = false, mostlyKazakh: Bool = false) -> KazakhEntry {
+func entry(_ forms: [(String, Int)], russian: Bool = false, name: Bool = false, mostlyKazakh: Bool = false,
+           russianByFar: Bool = false) -> KazakhEntry {
     KazakhEntry(forms: forms.map { KazakhForm(text: $0.0, count: $0.1) }, isRussianToo: russian, isName: name,
-                isMostlyKazakh: mostlyKazakh)
+                isMostlyRussian: russianByFar, isRussianByFar: russianByFar, isMostlyKazakh: mostlyKazakh)
 }
 
 var fake = KazakhVocabulary(words: KazakhWords.dictionary(userList: "рақмет\n# comment\nсәлем # inline"))
@@ -41,6 +42,7 @@ fake.corpus = FakeCorpus(entries: [
     "аска": entry([("асқа", 205)], russian: true, mostlyKazakh: true), "жатам": entry([("жатам", 10)]),
     "ойын": entry([("ойын", 9000), ("ойың", 120)]), "ойындар": entry([("ойындар", 900)]),
     "салеметсиз": entry([("сәлеметсіз", 300)]),
+    "как": entry([("қақ", 345), ("как", 17)], russian: true, russianByFar: true),
 ])
 fake.leftContext = ["туған\tкунин": "күнің"]
 fake.rightContext = ["жолын\tболсын": "жолың"]
@@ -129,6 +131,18 @@ check("hyphen pair", "ата ана ", "ата-ана ")
 check("stem + ending", "корсетши ", "көрсетші ")
 check("undo a two-word fix", "сени жаксы ⌫⌫", "сени жаксы")
 check("return resets", "мен\rтур ", "мен\rтур ")
+check("very Russian word in a Kazakh phrase", "жаксы как ", "жақсы как ")
+check("very Russian word doesn't wait for Kazakh", "как жаксы ", "как жақсы ")
+check("the Kazakh word typed with its letters", "қақ ", "қақ ")
+
+func checkLearn(_ title: String, _ word: String, _ expected: Bool) {
+    guard KazakhWords.canLearn(word, russian: nil) != expected else { return }
+    failures += 1
+    print("FAIL \(title): «\(word)»")
+}
+checkLearn("a lone letter isn't learned", "қ", false)
+checkLearn("two letters aren't learned", "ққ", false)
+checkLearn("a word is learned", "үйттің", true)
 
 func loadPhrases(_ path: String) -> [(typed: String, expected: String, tag: String)] {
     guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return [] }
@@ -157,10 +171,21 @@ func score(_ title: String, _ phrases: [(typed: String, expected: String, tag: S
     }
 }
 
+/// A word that reads as Russian once plain isn't learned ("қақ" over Russian "как").
+func checkLearnReal(_ plain: String, _ russian: KazakhWordList) {
+    if KazakhWords.canLearn("қақ", russian: russian) {
+        failures += 1
+        print("FAIL a Russian look-alike is learned: \(plain)")
+    }
+}
+
 if CommandLine.arguments.count > 1 {
     var real = KazakhVocabulary.load(from: URL(fileURLWithPath: CommandLine.arguments[1]))
     real.words = KazakhWords.dictionary()
     print("\nreal data: \((real.corpus as? KazakhCorpus)?.count ?? 0) spellings, \(real.leftContext.count + real.rightContext.count) context rules, \(real.pairs.count) pairs, \(real.endings.count) endings")
+    if let russian = real.russian {
+        checkLearnReal("как", russian)
+    }
     if CommandLine.arguments.count > 2 { score("Kazakh phrases", loadPhrases(CommandLine.arguments[2]), real) }
     if CommandLine.arguments.count > 3 { score("Russian phrases (must not change)", loadPhrases(CommandLine.arguments[3]), real, strict: true) }
 }
