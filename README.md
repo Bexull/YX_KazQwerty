@@ -44,7 +44,7 @@
 
 Нужны **macOS 26 Tahoe** и Mac на **Apple silicon** (M1 и новее).
 
-1. Скачайте `YX_KazQwerty-1.1.zip` со страницы
+1. Скачайте `YX_KazQwerty-1.2.zip` со страницы
    [последнего выпуска](https://github.com/Bexull/YX_KazQwerty/releases/latest) и откройте архив.
 2. Перетащите YX_KazQwerty в папку «Программы».
 3. Разрешите первый запуск. Приложение не нотаризовано Apple, поэтому macOS его остановит.
