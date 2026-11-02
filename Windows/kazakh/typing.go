@@ -73,7 +73,12 @@ type edit struct {
 type Typing struct {
 	// Votes from the phrase so far: Kazakh letters count for Kazakh, plainly Russian words
 	// for Russian. One both-language word ("он") can't flip a clearly Kazakh phrase.
-	score         int
+	score int
+	// Words finished in the phrase so far, and whether one of them speaks to "you" ("сен",
+	// "білесің"). A short message or one that addresses someone means "your" ("өзің"); longer
+	// text, an essay or a story, means "his" ("өзін").
+	phraseWords   int
+	addressed     bool
 	learned       []string
 	previous      *word
 	separator     string
@@ -81,6 +86,8 @@ type Typing struct {
 	currentLocked bool
 	lastEdit      *edit
 }
+
+func (t *Typing) speaksToYou() bool { return t.phraseWords < 3 || t.addressed }
 
 // Language of the phrase being typed.
 func (t *Typing) Language() Language {
@@ -105,6 +112,8 @@ func (t *Typing) TakeLearned() []string {
 func (t *Typing) Reset() {
 	t.resetWindow()
 	t.score = 0
+	t.phraseWords = 0
+	t.addressed = false
 }
 
 // Backspace handles ⌫.
@@ -131,8 +140,7 @@ func (t *Typing) Text(text string, vocabulary *Vocabulary) Action {
 	}
 	if t.current == "" {
 		if strings.IndexFunc(text, isNewline) >= 0 {
-			t.resetWindow()
-			t.score = 0
+			t.Reset()
 		} else if t.previous != nil {
 			t.separator += text
 		}
@@ -157,7 +165,7 @@ func (t *Typing) finishWord(boundary string, vocabulary *Vocabulary) Action {
 		if t.previous != nil {
 			before, hasBefore = lastToken(t.previous.shown), true
 		}
-		decision := t.decide(typed, before, hasBefore, boundary, t.Language(), vocabulary)
+		decision := t.decide(typed, before, hasBefore, boundary, t.Language(), vocabulary, false)
 		finished.shown = decision.shown
 		finished.waitingForContext = decision.waitingForContext
 		finished.provisional = decision.provisional
@@ -178,7 +186,7 @@ func (t *Typing) finishWord(boundary string, vocabulary *Vocabulary) Action {
 			before.waitingForContext = false
 			before.provisional = false
 		} else if before.waitingForContext && evidence > 0 {
-			before.shown = t.decide(before.typed, "", false, t.separator, Kazakh, vocabulary).shown
+			before.shown = t.decide(before.typed, "", false, t.separator, Kazakh, vocabulary, true).shown
 			before.waitingForContext = false
 			t.score += 2 - before.evidence
 			before.evidence = 2
@@ -198,6 +206,10 @@ func (t *Typing) finishWord(boundary string, vocabulary *Vocabulary) Action {
 	}
 
 	t.score = max(-3, min(3, t.score+evidence))
+	t.phraseWords++
+	if addressesYou(finished.shown) {
+		t.addressed = true
+	}
 	if !known && !t.currentLocked && ContainsKazakhLetters(typed) {
 		t.learned = append(t.learned, strings.ToLower(typed))
 	}
@@ -236,8 +248,7 @@ func (t *Typing) finishWord(boundary string, vocabulary *Vocabulary) Action {
 	t.current = ""
 	t.currentLocked = false
 	if strings.IndexFunc(boundary, isNewline) >= 0 {
-		t.resetWindow()
-		t.score = 0
+		t.Reset()
 	}
 
 	if oldSpan == newSpan {
@@ -303,8 +314,9 @@ type decision struct {
 }
 
 // decide: how typed should look, given the word before it and the phrase language so far.
+// confirmed: the word waited for context and the next word turned out Kazakh.
 func (t *Typing) decide(typed, before string, hasBefore bool, boundary string, language Language,
-	vocabulary *Vocabulary) decision {
+	vocabulary *Vocabulary, confirmed bool) decision {
 	if strings.IndexFunc(typed, isCyrillicLetter) < 0 {
 		return decision{shown: typed}
 	}
@@ -326,16 +338,21 @@ func (t *Typing) decide(typed, before string, hasBefore bool, boundary string, l
 		if entry.IsAcronym && !(utf8.RuneCountInString(typed) > 1 && typed == strings.ToUpper(typed)) {
 			return decision{shown: typed, known: true}
 		}
-		// "Сәлем, как дела": it stays Russian, unless the word before calls for the Kazakh form.
-		if entry.IsRussianByFar && !entry.IsTrusted && !ContainsKazakhLetters(typed) {
+		// Far more common in Russian ("как", "они"): it stays as typed ("Сәлем, как дела"), and in
+		// a Kazakh phrase waits for the next word to be Kazakh too ("өңі қуарып"), unless the word
+		// before calls for the Kazakh form.
+		if entry.IsRussianByFar && !entry.IsTrusted && !confirmed && !ContainsKazakhLetters(typed) {
 			_, byContext := vocabulary.LeftContext[strings.ToLower(before)+"\t"+plain]
 			if !hasBefore || !byContext {
+				if language == Kazakh {
+					return decision{shown: typed, waitingForContext: true, known: true}
+				}
 				return decision{shown: typed, evidence: -1, known: true}
 			}
 		}
 		// Written together even in the corpus ("білесіңбе", "жоқпа"), or asked with "?" ("барма?").
 		if !entry.IsTrusted && language != Russian {
-			if split, ok := splitParticle(plain, typed, entry.Forms[0].Count, asked, language, vocabulary); ok {
+			if split, ok := t.splitParticle(plain, typed, entry.Forms[0].Count, asked, language, vocabulary); ok {
 				return decision{shown: split, evidence: 2, known: true}
 			}
 		}
@@ -349,7 +366,7 @@ func (t *Typing) decide(typed, before string, hasBefore bool, boundary string, l
 		if found {
 			form, byContext = chosen, true
 		} else {
-			if second, ok := preferSecondPerson(entry, before, hasBefore, vocabulary); ok {
+			if second, ok := preferSecondPerson(entry, before, hasBefore, vocabulary); ok && t.speaksToYou() {
 				form = second
 			}
 			// The typed spelling is itself a common Kazakh word ("сал"): keep it.
@@ -390,11 +407,11 @@ func (t *Typing) decide(typed, before string, hasBefore bool, boundary string, l
 	if isRussian {
 		return decision{shown: typed, evidence: -2, known: true}
 	}
-	if split, ok := splitParticle(plain, typed, 0, asked, language, vocabulary); ok {
+	if split, ok := t.splitParticle(plain, typed, 0, asked, language, vocabulary); ok {
 		return decision{shown: split, evidence: 2, known: true}
 	}
 	capitalized := startsUpper(typed)
-	if g, ok := compose(plain, capitalized, language, vocabulary); ok && g.text != lower {
+	if g, ok := t.compose(plain, capitalized, language, vocabulary); ok && g.text != lower {
 		// A name with a Kazakh ending ("Узынагашка"), but the phrase may still turn out
 		// Russian ("Нурланов сказал").
 		provisional := g.fromName && language == Unknown
@@ -406,7 +423,7 @@ func (t *Typing) decide(typed, before string, hasBefore bool, boundary string, l
 	}
 	// Written small ("узынагашка"), a name waits for the phrase to show it is Kazakh.
 	if language == Unknown && !capitalized {
-		if g, ok := compose(plain, false, Kazakh, vocabulary); ok && g.fromName && g.text != lower {
+		if g, ok := t.compose(plain, false, Kazakh, vocabulary); ok && g.fromName && g.text != lower {
 			return decision{shown: typed, waitingForContext: true, known: true}
 		}
 	}
@@ -428,7 +445,7 @@ func usableStem(entry *Entry, ending string, capitalized bool, language Language
 // splitParticle: "айтасынба" → "айтасың ба", "биргана" → "бір ғана": a particle written
 // together with its word. mergedCount > 0 when the merged spelling itself is in the corpus:
 // then the stem must be far more common, or the word must end with a question mark.
-func splitParticle(plain, typed string, mergedCount int, asked bool, language Language,
+func (t *Typing) splitParticle(plain, typed string, mergedCount int, asked bool, language Language,
 	vocabulary *Vocabulary) (string, bool) {
 	for _, p := range attachable {
 		length := utf8.RuneCountInString(p.plain)
@@ -449,7 +466,7 @@ func splitParticle(plain, typed string, mergedCount int, asked bool, language La
 				stem = second
 			}
 		} else if mergedCount == 0 {
-			g, ok := compose(stemPlain, capitalized, language, vocabulary)
+			g, ok := t.compose(stemPlain, capitalized, language, vocabulary)
 			if !ok {
 				continue
 			}
@@ -473,7 +490,7 @@ type guess struct {
 }
 
 // compose: a word the corpus lacks: a known stem plus a common ending ("көрсет" + "ші").
-func compose(plain string, capitalized bool, language Language, vocabulary *Vocabulary) (guess, bool) {
+func (t *Typing) compose(plain string, capitalized bool, language Language, vocabulary *Vocabulary) (guess, bool) {
 	letters := []rune(plain)
 	if len(letters) < 5 || language == Russian {
 		return guess{}, false
@@ -490,9 +507,16 @@ func compose(plain string, capitalized bool, language Language, vocabulary *Voca
 			continue
 		}
 		ending := endings[0].Text
+		// "Your" rather than "his" where the text speaks to someone, as in decide. A lone "ң"
+		// only as "-ың/-ің" ("халы" + "н"), never after a case ending ("қорғанына" + "н").
+		stemRunes := []rune(stem)
+		afterPossessive := len(stemRunes) > 0 && strings.ContainsRune("ыі", stemRunes[len(stemRunes)-1])
 		for _, second := range endings[1:] {
+			if !t.speaksToYou() {
+				break
+			}
 			if differsOnlyByPerson(ending, second.Text) && isSecondPersonEnding(stem+second.Text) &&
-				second.Count*20 >= endings[0].Count {
+				second.Count*20 >= endings[0].Count && (utf8.RuneCountInString(second.Text) > 1 || afterPossessive) {
 				ending = second.Text
 				break
 			}

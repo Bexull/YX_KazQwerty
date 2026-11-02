@@ -61,6 +61,12 @@ struct KazakhTyping {
     /// for Russian. One both-language word ("он") can't flip a clearly Kazakh phrase.
     private var score = 0
     var language: Language { score > 0 ? .kazakh : score < 0 ? .russian : .unknown }
+    /// Words finished in the phrase so far, and whether one of them speaks to "you" ("сен",
+    /// "білесің"). A short message or one that addresses someone means "your" ("өзің"); longer
+    /// text, an essay or a story, means "his" ("өзін").
+    private var phraseWords = 0
+    private var addressed = false
+    private var speaksToYou: Bool { phraseWords < 3 || addressed }
     private(set) var events: [Event] = []
     private var previous: Word?
     private var separator = ""
@@ -76,8 +82,7 @@ struct KazakhTyping {
     mutating func handle(_ input: Input, vocabulary: KazakhVocabulary) -> Action {
         switch input {
         case .reset:
-            resetWindow()
-            score = 0
+            resetPhrase()
             return .pass
 
         case .backspace:
@@ -102,8 +107,7 @@ struct KazakhTyping {
             }
             guard !current.isEmpty else {
                 if text.contains(where: \.isNewline) {
-                    resetWindow()
-                    score = 0
+                    resetPhrase()
                 } else if previous != nil {
                     separator += text
                 }
@@ -145,7 +149,7 @@ struct KazakhTyping {
                 before.provisional = false
             } else if before.waitingForContext, evidence > 0 {
                 before.shown = decide(before.typed, before: nil, boundary: separator, language: .kazakh,
-                                      vocabulary: vocabulary).shown
+                                      vocabulary: vocabulary, confirmed: true).shown
                 before.waitingForContext = false
                 score += 2 - before.evidence
                 before.evidence = 2
@@ -163,6 +167,8 @@ struct KazakhTyping {
         }
 
         score = max(-3, min(3, score + evidence))
+        phraseWords += 1
+        if KazakhWords.addressesYou(word.shown) { addressed = true }
         if !known, !currentLocked, KazakhWords.containsKazakhLetters(typed) {
             events.append(.learned(word: typed.lowercased()))
         }
@@ -193,8 +199,7 @@ struct KazakhTyping {
         current = ""
         currentLocked = false
         if boundary.contains(where: \.isNewline) {
-            resetWindow()
-            score = 0
+            resetPhrase()
         }
 
         guard oldSpan != newSpan else { return .pass }
@@ -233,6 +238,14 @@ struct KazakhTyping {
         }
     }
 
+    /// A new phrase: Return, or the cursor may have moved.
+    private mutating func resetPhrase() {
+        resetWindow()
+        score = 0
+        phraseWords = 0
+        addressed = false
+    }
+
     private mutating func resetWindow() {
         previous = nil
         separator = ""
@@ -257,8 +270,9 @@ struct KazakhTyping {
     }
 
     /// How `typed` should look, given the word before it and the phrase language so far.
+    /// `confirmed`: the word waited for context and the next word turned out Kazakh.
     func decide(_ typed: String, before: String?, boundary: String, language: Language,
-                vocabulary: KazakhVocabulary) -> Decision {
+                vocabulary: KazakhVocabulary, confirmed: Bool = false) -> Decision {
         guard typed.contains(where: KazakhWords.isCyrillicLetter) else { return Decision(shown: typed) }
         let plain = KazakhWords.plain(typed)
         let lower = typed.lowercased()
@@ -276,10 +290,13 @@ struct KazakhTyping {
             if entry.isAcronym, !(typed.count > 1 && typed == typed.uppercased()) {
                 return Decision(shown: typed, known: true)
             }
-            // "Сәлем, как дела": it stays Russian, unless the word before calls for the Kazakh form.
-            if entry.isRussianByFar, !entry.isTrusted, !KazakhWords.containsKazakhLetters(typed),
+            // Far more common in Russian ("как", "они"): it stays as typed ("Сәлем, как дела"), and in
+            // a Kazakh phrase waits for the next word to be Kazakh too ("өңі қуарып"), unless the word
+            // before calls for the Kazakh form.
+            if entry.isRussianByFar, !entry.isTrusted, !confirmed, !KazakhWords.containsKazakhLetters(typed),
                before.flatMap({ vocabulary.leftContext[$0.lowercased() + "\t" + plain] }) == nil {
-                return Decision(shown: typed, evidence: -1, known: true)
+                return language == .kazakh ? Decision(shown: typed, waitingForContext: true, known: true)
+                    : Decision(shown: typed, evidence: -1, known: true)
             }
             // Written together even in the corpus ("білесіңбе", "жоқпа"), or asked with "?" ("барма?").
             if !entry.isTrusted, language != .russian,
@@ -294,7 +311,9 @@ struct KazakhTyping {
                 form = chosen
                 byContext = true
             } else {
-                form = Self.preferSecondPerson(entry, before: before, vocabulary: vocabulary) ?? form
+                if speaksToYou {
+                    form = Self.preferSecondPerson(entry, before: before, vocabulary: vocabulary) ?? form
+                }
                 // The typed spelling is itself a common Kazakh word ("сал"): keep it.
                 if !entry.isTrusted, !entry.isChat, form != lower, !KazakhWords.differsOnlyByPerson(form, lower),
                    entry.count(of: lower) >= max(1, entry.forms[0].count * 15 / 100) {
@@ -409,9 +428,12 @@ struct KazakhTyping {
             let stem = entry.best
             guard let endings = vocabulary.endings[KazakhWords.harmony(of: stem) + "\t" + endingPlain],
                   var ending = endings.first?.text else { continue }
-            if let second = endings.dropFirst().first(where: {
+            // "Your" rather than "his" where the text speaks to someone, as in `decide`. A lone "ң"
+            // only as "-ың/-ің" ("халы" + "н"), never after a case ending ("қорғанына" + "н").
+            if speaksToYou, let second = endings.dropFirst().first(where: {
                 KazakhWords.differsOnlyByPerson(ending, $0.text) && KazakhWords.isSecondPersonEnding(stem + $0.text)
                     && $0.count * 20 >= endings[0].count
+                    && ($0.text.count > 1 || stem.last.map { "ыі".contains($0) } == true)
             }) {
                 ending = second.text
             }

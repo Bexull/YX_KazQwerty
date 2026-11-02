@@ -144,6 +144,35 @@ func isSecondPersonEnding(word string) bool {
 // thirdPersonCues: words after which "-ын/-ін" (his, hers) is meant rather than "-ың/-ің" (your).
 var thirdPersonCues = set("оның", "олардың", "өзінің", "соның", "мұның", "бұның", "кімнің")
 
+// addressesYou: a word that speaks to "you" ("сен", "сіздің", "білесің", "болыңыз"): the text
+// addresses someone, so "-ың/-ің" means "your" from then on.
+func addressesYou(word string) bool {
+	lower := strings.ToLower(word)
+	if youPronouns[lower] {
+		return true
+	}
+	// Not "-дың/-тың" (also "of": "Абайдың") or "-сыз" (also "without": "сауатсыз"); "теңіз" is a sea.
+	if strings.HasPrefix(lower, "теңіз") {
+		return false
+	}
+	length := utf8.RuneCountInString(lower)
+	for _, ending := range youEndings {
+		if length > utf8.RuneCountInString(ending)+1 && strings.HasSuffix(lower, ending) {
+			return true
+		}
+	}
+	return false
+}
+
+var youPronouns = set(
+	"сен", "сені", "сенің", "саған", "сенде", "сенен", "сенімен", "сіз", "сізді", "сіздің", "сізге", "сізде",
+	"сізден", "сізбен", "сендер", "сіздер", "сендерді", "сіздерді", "сендердің", "сіздердің", "сендерге", "сіздерге",
+)
+
+var youEndings = []string{
+	"сың", "сің", "сыңдар", "сіңдер", "ыңыз", "іңіз", "аңыз", "еңіз", "ыңыздар", "іңіздер", "ңдар", "ңдер",
+}
+
 // nameEndings: endings a name or place takes in Kazakh ("Ұзынағашқа", "Қарлығашпен"), plain
 // spelling. Russian case endings ("Нурлана", "Нурланом") are not here.
 var nameEndings = set(

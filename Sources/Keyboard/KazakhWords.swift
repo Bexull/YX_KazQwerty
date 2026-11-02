@@ -103,6 +103,23 @@ enum KazakhWords {
     /// Words after which "-ын/-ін" (his, hers) is meant rather than "-ың/-ің" (your).
     static let thirdPersonCues: Set<String> = ["оның", "олардың", "өзінің", "соның", "мұның", "бұның", "кімнің"]
 
+    /// A word that speaks to "you" ("сен", "сіздің", "білесің", "болыңыз"): the text addresses
+    /// someone, so "-ың/-ің" means "your" from then on.
+    static func addressesYou(_ word: String) -> Bool {
+        let lower = word.lowercased()
+        if youPronouns.contains(lower) { return true }
+        // Not "-дың/-тың" (also "of": "Абайдың") or "-сыз" (also "without": "сауатсыз"); "теңіз" is a sea.
+        return !lower.hasPrefix("теңіз") && youEndings.contains { lower.count > $0.count + 1 && lower.hasSuffix($0) }
+    }
+
+    private static let youPronouns: Set<String> = [
+        "сен", "сені", "сенің", "саған", "сенде", "сенен", "сенімен", "сіз", "сізді", "сіздің", "сізге", "сізде",
+        "сізден", "сізбен", "сендер", "сіздер", "сендерді", "сіздерді", "сендердің", "сіздердің", "сендерге", "сіздерге",
+    ]
+    private static let youEndings = [
+        "сың", "сің", "сыңдар", "сіңдер", "ыңыз", "іңіз", "аңыз", "еңіз", "ыңыздар", "іңіздер", "ңдар", "ңдер",
+    ]
+
     /// Endings a name or place takes in Kazakh ("Ұзынағашқа", "Қарлығашпен"), plain spelling.
     /// Russian case endings ("Нурлана", "Нурланом") are not here.
     static let nameEndings: Set<String> = [

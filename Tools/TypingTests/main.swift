@@ -134,6 +134,9 @@ check("return resets", "мен\rтур ", "мен\rтур ")
 check("very Russian word in a Kazakh phrase", "жаксы как ", "жақсы как ")
 check("very Russian word doesn't wait for Kazakh", "как жаксы ", "как жақсы ")
 check("the Kazakh word typed with its letters", "қақ ", "қақ ")
+check("very Russian word fixed when Kazakh follows", "жаксы как жаксы ", "жақсы қақ жақсы ")
+check("his in longer text", "бир бир бир озин ", "бір бір бір өзін ")
+check("your when the text speaks to someone", "бир бир бир сен озин ", "бір бір бір сен өзің ")
 
 func checkLearn(_ title: String, _ word: String, _ expected: Bool) {
     guard KazakhWords.canLearn(word, russian: nil) != expected else { return }
